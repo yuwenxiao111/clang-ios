@@ -1,0 +1,34 @@
+name: Build CLANG IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Unzip and generate project
+        run: |
+          unzip -o -q clang-src.zip -d .
+          cd CLANGIOS/ios
+          xcodegen generate
+          ls -la CLANG.xcodeproj
+      - name: Archive
+        run: |
+          cd CLANGIOS/ios
+          xcodebuild -project CLANG.xcodeproj -scheme CLANG -configuration Release -sdk iphoneos -destination "generic/platform=iOS" -archivePath build/CLANG.xcarchive archive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - name: Pack IPA
+        run: |
+          mkdir -p out/Payload
+          cp -R CLANGIOS/ios/build/CLANG.xcarchive/Products/Applications/CLANG.app out/Payload/
+          cd out
+          zip -qry CLANG.ipa Payload
+          ls -lh CLANG.ipa
+          plutil -p Payload/CLANG.app/Info.plist | head -30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CLANG-unsigned-ipa
+          path: out/CLANG.ipa
